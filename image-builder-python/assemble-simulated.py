@@ -3,7 +3,7 @@ from ctypes import sizeof
 import socket
 
 from matplotlib import projections
-import keyboard
+#import keyboard      #dette har gabriel gjort
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
