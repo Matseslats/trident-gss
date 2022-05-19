@@ -15,7 +15,11 @@ SimplePointMarker andenesMarker = new SimplePointMarker(andenesLocation);
 SimplePointMarker cansatMarker = new SimplePointMarker(cansatLocation);
 
 import processing.video.*;
-Movie movie;
+Movie   movie;
+
+import processing.serial.*;
+Serial myPort;  // Create object from Serial class
+int val;      // Data received from the serial port
 
 ToxiclibsSupport gfx;
 TriangleMesh mesh;
@@ -23,7 +27,7 @@ float seed = 0;
 PFont font;
 float altitudes[] = new float[100];
 float accelrations[] = new float[100];
-int graphdelay = 5; // How many plot points to skip before drawing next point
+int graphdelay = 20; // How many plot points to skip before drawing next point
 int counter = 0;
 int locpoint = 0;
 ArrayList<Button> buttons;
@@ -33,6 +37,8 @@ boolean movieLoaded = false;
 int connectiondelay = 100;
 int connectioncounter = 0;
 int lastReadTime = 0;
+int lastSavedFrame;
+String portName;
 
 public void setup(){
     size(1920, 1080, P3D);
@@ -49,12 +55,13 @@ public void setup(){
     MapUtils.createDefaultEventDispatcher(this, map);
     lat = 16.028693;
     lon = 69.296889;
-    sats = 12;
+    sats = 0;
     alt = 1200;
-    vel = 15;
+    vel = 0;
     pres = 102.4012412;
     temp = 15;
     acc = -0.01;
+    vcc = 3;
     buttons = new ArrayList<Button>();
     //// Fill graph points with zeroes
     //for(int i = 0; i < 100; i++){
@@ -70,6 +77,9 @@ public void setup(){
     //  //println(e);
     //  movieLoaded = false;
     //}
+    portName = Serial.list()[0];
+    println(portName);
+    myPort = new Serial(this, portName, 9600);
 }
 //void movieEvent(Movie m) {
 //  try {
@@ -88,7 +98,7 @@ public void setup(){
 //  }
 //}
 
-float lat, lon, alt, vel, acc, temp, pres;
+float lat, lon, alt, vel, acc, temp, pres, vcc;
 int sats;
 int writtenLines;
 boolean connectedRX = false;
@@ -96,6 +106,7 @@ boolean setupButtons = false;
 boolean autoCenterMap = true;
 boolean enableRPi = false;
 String dataString[] = {};
+String callsign = "UNIDENTIFIED";
 public void draw(){
   if(!setupButtons){
     buttons.add(new Button(width/2, height-75, 400, 100, "square", "Disabled", 16, #FFFFFF, #FF3636, #CE2E2E, 2)); // Turn on RPi
@@ -163,11 +174,11 @@ public void draw(){
   fill(255);
   cansatMarker.setLocation(cansat);
   textSize(48);
-  text("CANSAT TRIDENT 2022",0,80);
+  text("CANSAT MAI 2022",0,80);
   textSize(24);
-  text("Pre-Launch Simulation (Perlin noise)",4,130);
+  text("CanSat " + callsign + " " + portName ,4,130);
   fill(#F6FF03);
-  text((year() + "." + pad(month(),2) + "." + pad(day(),2) + " " + pad(hour(),2) + ":" + pad(minute(),2) + ":" + pad(second(),2) + " (" + round(frameRate) + " fps)"),4,172);
+  text((year() + "." + pad(month(),2) + "." + pad(day(),2) + " " + pad(hour(),2) + ":" + pad(minute(),2) + ":" + pad(second(),2) + " (" + counter + ")"),4,172);
   writtenLines = 0;
   write("LAT", lat, 5, "");
   write("LON", lon, 5, "");
@@ -178,6 +189,7 @@ public void draw(){
   write();
   write("T  ", temp, 1, "°C", #6464FF);
   write("P  ", pres, 4, "kPa");
+  write("VCC", vcc, 3, "V");
   directionalLight(126, 126, 126, 0, -1, 0);
   ambientLight(200, 200, 200);
   translate(width/2, height/2, 300);
@@ -205,21 +217,53 @@ String pad(int a, int padding){
   return out;
 }
 void getdata(){
-  float amplitude = 5;
-  float noise = noise(seed)-0.5;
-  rotX += noise *amplitude;
-  rotY += noise *amplitude;
-  rotZ += noise *amplitude;
-  lat += noise * 0.002;
-  lon += noise * 0.002;
+  //float amplitude = 5;
+  //float noise = noise(seed)-0.5;
+  //rotX += noise *amplitude;
+  //rotY += noise *amplitude;
+  //rotZ += noise *amplitude;
+  //lat += noise * 0.002;
+  //lon += noise * 0.002;
   
-  sats = int(sats + noise *2);
-  acc += noise *0.1;
-  vel += noise;
-  alt += noise;
-  pres += noise * 0.002;
-  temp += noise * 0.02;
+  //sats = int(sats + noise *2);
+  //acc += noise *0.1;
+  //vel += noise;
+  //alt += noise;
+  //pres += noise * 0.002;
+  //temp += noise * 0.02;
   
+  
+  String vals = "";
+  while ( myPort.available() > 0) {  // If data is available,
+    vals += char(myPort.read());         // read it and store it in val
+  }
+  if(vals != ""){
+    // Process
+    String valueArray[];
+    valueArray = split(vals, ',');
+    if(valueArray.length == 20){
+      //printArray(valueArray);
+      callsign = valueArray[0];
+      counter = int(valueArray[1]);
+      acc = float(valueArray[8]);
+      temp = float(valueArray[4]);
+      float ax = float(valueArray[5]);
+      float ay = float(valueArray[6]);
+      float az = float(valueArray[7]);
+      pres = float(valueArray[19]);
+      rotX = float(valueArray[16]);
+      rotY = float(valueArray[17]);
+      rotZ = float(valueArray[18]);
+      //rotX = degrees(atan((ax) / sqrt(ay * ay + az * az))) + 0;
+      //rotY = degrees(atan((ay) / sqrt(ax * ax + az * az))) + 0;
+      //rotZ = degrees(atan((sqrt(ax * ax + ay * ay)) / (az))) + 0;
+      //println(ax, ay, az, rotX, rotY, rotZ);
+      int startTemp = 15;
+      float startPres = 102.08;
+      alt = 0+(startTemp+273.15)/-0.0065*(pow((pres/startPres),((-8.31432*-0.0065)/(9.80665*0.0289644)))-1);
+      vcc = float(valueArray[3]);
+    }
+  }
   if (counter % graphdelay == 1){
     altitudes[locpoint] = alt;
     accelrations[locpoint] = acc;
@@ -227,14 +271,17 @@ void getdata(){
     locpoint %= 100;
   }
   if(logging){
-    dataString = append(dataString, day() + ";" + hour() + ";" + minute() + ";" + second() + ";" + 
-                                    counter + ";" + rotX + ";" + rotY + ";" + rotZ + ";" + 
-                                    lon + ";" + lat + ";" + alt + ";" + sats + ";" + 
-                                    acc + ";" + vel + ";" + temp + ";" + pres);
+    if(lastSavedFrame != counter){
+      dataString = append(dataString, day() + ";" + hour() + ";" + minute() + ";" + second() + ";" + 
+                                      counter + ";" + callsign + ";" + rotX + ";" + rotY + ";" + rotZ + ";" + 
+                                      lon + ";" + lat + ";" + alt + ";" + sats + ";" + 
+                                      acc + ";" + vel + ";" + temp + ";" + pres);
+      lastSavedFrame = counter;
+    }
   }
     
-  seed += 0.005;
-  counter = (counter + 1);
+  //seed += 0.005;
+  //counter = (counter + 1);
 }
 int gap = 55;
 int padX = 730;

@@ -11,10 +11,10 @@ import matplotlib.cbook as cbook
 import os
 
 # Serial setup
-ser = ps.Serial('COM5', 9600)
+ser = ps.Serial('COM3', 9600)
 
 # Watermark image
-imgpath = "C:\\Users\\matsh\\Documents\\cansat\\software\\gss\\trident-gss\\image-builder-python\\logo-small.png" # os.getcwd() + "\\logo-small.png"
+imgpath = "C:\\Users\\Bruker\\Documents\\GitHub\\trident-gss\\image-builder-python\\logo-small.png" # os.getcwd() + "\\logo-small.png"
 with cbook.get_sample_data(imgpath) as file:
     im = mpimg.imread(file)
 
@@ -80,9 +80,9 @@ def plot(a):
         global fig, templine, tempplot, presline, presplot, picplot, img0, data
         # print("Updating graph")
         templine.set_ydata(data["temps"])
-        tempplot.set(ylim=(0, 20), yticks=np.arange(0, 25), xlim=(1-plotPoints, 0), xticks=np.arange((1-plotPoints), 0, 10)) # xlim=(1-plotPoints, 0), xticks=np.arange((1-plotPoints), 0, 10), 
+        tempplot.set(ylim=(0, 35), yticks=np.arange(0, 35), xlim=(1-plotPoints, 0), xticks=np.arange((1-plotPoints), 0, 10)) # xlim=(1-plotPoints, 0), xticks=np.arange((1-plotPoints), 0, 10),
         presline.set_ydata(data["pressures"])
-        presplot.set(ylim=(97, 103), yticks=np.arange(97, 103),xlim=(1-plotPoints, 0), xticks=np.arange((1-plotPoints), 0, 10))
+        presplot.set(ylim=(30, 103), yticks=np.arange(30, 103),xlim=(1-plotPoints, 0), xticks=np.arange((1-plotPoints), 0, 10))
 
         # Plot 3d position
         global posline
@@ -162,12 +162,12 @@ def process_data(p):
         
         # Process data
         TEMP = int(p[4:6], 16)
-        PRES = int(p[6:8], 16)
-        LAT = int(p[8:10], 16)
-        LON = int(p[10:12], 16)
-        ALT = int(p[12:14], 16)
-        px1 = int(p[14:16], 16)
-        px2 = int(p[16:18], 16)
+        PRES = int(p[6:10], 16) / 1000
+        LAT = int(p[10:12], 16)
+        LON = int(p[12:14], 16)
+        ALT = int(p[14:16], 16)
+        px1 = int(p[16:18], 16)
+        px2 = int(p[18:20], 16)
 
         data["temps"].pop(0)
         data["temps"].append(TEMP)
@@ -213,14 +213,14 @@ def split_packets(d):
     for p in packets:
         # print("[P] Lst packet: %r" % lastpacket)
         # print("[P] Raw packet: %r" % p)
-        if len(p) < 20: # Some of the package missing?
+        if len(p) < 22: # Some of the package missing?
             if first:
-                p = (lastpacket[len(p)-18:]) + p # Append to start
-                p = p[-20:]
+                p = (lastpacket[len(p)-20:]) + p # Append to start
+                p = p[-22:]
                 # print("Add %r to the start" % lastpacket[len(p)-18:])
                 first = False
         # print("[P] Packet:     %r" % p)
-        if len(p) == 18:
+        if len(p) == 20:
             # try:
             process_data(p)
             # except:
