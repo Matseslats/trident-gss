@@ -17,6 +17,11 @@ SimplePointMarker cansatMarker = new SimplePointMarker(cansatLocation);
 import processing.video.*;
 Movie movie;
 
+import java.text.SimpleDateFormat;
+import java.util.Date;
+int ONE_DAY = 1000*24*60*60;
+Date pdate;
+
 ToxiclibsSupport gfx;
 TriangleMesh mesh;
 float seed = 0;
@@ -33,6 +38,8 @@ boolean movieLoaded = false;
 int connectiondelay = 100;
 int connectioncounter = 0;
 int lastReadTime = 0;
+String recieved_date;
+float humid;
 
 public void setup(){
     size(1920, 1080, P3D);
@@ -70,6 +77,7 @@ public void setup(){
     //  //println(e);
     //  movieLoaded = false;
     //}
+    thread("updateData");
 }
 //void movieEvent(Movie m) {
 //  try {
@@ -165,9 +173,9 @@ public void draw(){
   textSize(48);
   text("CANSAT TRIDENT 2022",0,80);
   textSize(24);
-  text("Pre-Launch Simulation (Perlin noise)",4,130);
+  text("Pre-Launch Simulation (RPi data)",4,130);
   fill(#F6FF03);
-  text((year() + "." + pad(month(),2) + "." + pad(day(),2) + " " + pad(hour(),2) + ":" + pad(minute(),2) + ":" + pad(second(),2) + " (" + round(frameRate) + " fps)"),4,172);
+  text((pdate + " (" + round(frameRate) + " fps)"),4,172);
   writtenLines = 0;
   write("LAT", lat, 5, "");
   write("LON", lon, 5, "");
@@ -205,20 +213,54 @@ String pad(int a, int padding){
   return out;
 }
 void getdata(){
-  float amplitude = 5;
-  float noise = noise(seed)-0.5;
-  rotX += noise *amplitude;
-  rotY += noise *amplitude;
-  rotZ += noise *amplitude;
-  lat += noise * 0.002;
-  lon += noise * 0.002;
+  //float amplitude = 5;
+  //float noise = noise(seed)-0.5;
+  //rotX += noise *amplitude;
+  //rotY += noise *amplitude;
+  //rotZ += noise *amplitude;
+  //lat += noise * 0.002;
+  //lon += noise * 0.002;
   
-  sats = int(sats + noise *2);
-  acc += noise *0.1;
-  vel += noise;
-  alt += noise;
-  pres += noise * 0.002;
-  temp += noise * 0.02;
+  //sats = int(sats + noise *2);
+  //acc += noise *0.1;
+  //vel += noise;
+  //alt += noise;
+  //pres += noise * 0.002;
+  //temp += noise * 0.02;
+  
+  //if (counter % graphdelay == 1){
+  //  altitudes[locpoint] = alt;
+  //  accelrations[locpoint] = acc;
+  //  locpoint ++;
+  //  locpoint %= 100;
+  //}
+  //if(logging){
+  //  dataString = append(dataString, day() + ";" + hour() + ";" + minute() + ";" + second() + ";" + 
+  //                                  counter + ";" + rotX + ";" + rotY + ";" + rotZ + ";" + 
+  //                                  lon + ";" + lat + ";" + alt + ";" + sats + ";" + 
+  //                                  acc + ";" + vel + ";" + temp + ";" + pres);
+  //}
+    
+  //seed += 0.005;
+  //counter = (counter + 1);
+}
+
+void process_data(String in){
+  String data_points[] = in.split(",");
+  long int_ns = Long.parseLong(data_points[0]);
+  long unix = Long.parseLong(data_points[0].substring(0, data_points[0].length()-6));
+  lat =   float(data_points[1]);
+  lon =   float(data_points[2]);
+  alt =   float(data_points[3]);
+  sats =    int(data_points[4]);
+  vel =     int(data_points[5]);
+  rotX =  float(data_points[6]);
+  rotY =  float(data_points[7]);
+  rotZ =  float(data_points[8]);
+  temp =  float(data_points[9]);
+  humid = float(data_points[10]);
+  pres =  float(data_points[11]);
+  pdate = new Date(unix);
   
   if (counter % graphdelay == 1){
     altitudes[locpoint] = alt;
@@ -227,7 +269,7 @@ void getdata(){
     locpoint %= 100;
   }
   if(logging){
-    dataString = append(dataString, day() + ";" + hour() + ";" + minute() + ";" + second() + ";" + 
+    dataString = append(dataString, int_ns + ";" + 
                                     counter + ";" + rotX + ";" + rotY + ";" + rotZ + ";" + 
                                     lon + ";" + lat + ";" + alt + ";" + sats + ";" + 
                                     acc + ";" + vel + ";" + temp + ";" + pres);
@@ -235,6 +277,27 @@ void getdata(){
     
   seed += 0.005;
   counter = (counter + 1);
+}
+
+import processing.net.*;
+
+Server myServer;
+int port = 5000;
+void updateData(){
+  myServer = new Server(this, port);
+  while (true){
+    Client thisClient = myServer.available();
+    // If the client is not null, and says something, display what it said
+    if (thisClient !=null) {
+      String whatClientSaid = thisClient.readString();
+      if (whatClientSaid != null) {
+        process_data(whatClientSaid);
+        //println(thisClient.ip() + "\t->\t" + whatClientSaid);
+        delay(100);
+        myServer.write(("DATA RECIEVED"));
+      } 
+    }
+  }
 }
 int gap = 55;
 int padX = 730;
