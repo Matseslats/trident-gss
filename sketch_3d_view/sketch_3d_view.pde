@@ -40,13 +40,15 @@ int connectioncounter = 0;
 int lastReadTime = 0;
 String recieved_date;
 float humid;
+PGraphics CanSat;
 
 public void setup(){
     size(1920, 1080, P3D);
     //fullScreen(P3D);
     font = createFont("fonts/CascadiaCode-Bold.otf", 128);
     textFont(font, 32);
-    mesh = (TriangleMesh) new STLReader().loadBinary(sketchPath("Arrow.stl"), STLReader.TRIANGLEMESH);
+    mesh = (TriangleMesh) new STLReader().loadBinary(sketchPath("Frame-raw-b.stl"), STLReader.TRIANGLEMESH);
+    CanSat = createGraphics(300,300,P3D);
     gfx = new ToxiclibsSupport(this);
     map  = new UnfoldingMap(this, "overview", width-655, height-400, 655, 400);
     map.zoomAndPanTo(10, new Location(69.29f, 16.0f));
@@ -67,8 +69,9 @@ public void setup(){
     //for(int i = 0; i < 100; i++){
     //  altitudes[i] = 0.0;
     //}
-    //Movie.supportedProtocols[0] = "rtsp";
-    //movie = new Movie(this, "rtsp://raspberrypi:8080/");
+    
+    //Movie.supportedProtocols[0] = "https";
+    //movie = new Movie(this, "https://raspberrypi:8080/");
     //try {
     //  movie.play();
     //  movieLoaded = true;
@@ -77,7 +80,8 @@ public void setup(){
     //  //println(e);
     //  movieLoaded = false;
     //}
-    thread("updateData");
+    thread("updateData"); // Thread to read data
+    //thread("AnimateCanSat");
 }
 //void movieEvent(Movie m) {
 //  try {
@@ -112,8 +116,8 @@ public void draw(){
     buttons.add(new Button(width-75, height-(400), 100, 32, "square", "AUTO", 12, #FFFFFF, #2ECE5A, #25AF4B, 11)); // Auto track cansat
     setupButtons = true;
   }
-  getdata();
-  //println("                      ",lastReadTime, millis(), connectioncounter, connectiondelay);
+  //getdata();
+  ////println("                      ",lastReadTime, millis(), connectioncounter, connectiondelay);
   //// Timeout of five seconds
   //if(lastReadTime <= millis() - 5000){
   //  movieLoaded = false;
@@ -156,17 +160,17 @@ public void draw(){
     Button button = buttons.get(i);
     button.display();
   }
-  graph(altitudes, "ALTITUDE",0,height-400,700,400,#00C601);
+  //graph(altitudes, "ALTITUDE",0,height-400,700,400,#00C601);
   //graph(accelrations, "ACCELERATION",0,300,700,400,#E635FA);
-  try {
-    if(movieLoaded){
-      image(movie, 0, 300, 1920/3, 1080/3);
-    } else {
-      graph(accelrations, "ACCELERATION",0,300,700,400,#E635FA); 
-    }
-  } catch (Exception e) {
-    graph(accelrations, "ACCELERATION",0,300,700,400,#E635FA); 
-  }
+  //try {
+  //  if(movieLoaded){
+  //    image(movie, 0, 300, 1920/3, 1080/3);
+  //  } else {
+  //    //graph(accelrations, "ACCELERATION",0,300,700,400,#E635FA); 
+  //  }
+  //} catch (Exception e) {
+  //  //graph(accelrations, "ACCELERATION",0,300,700,400,#E635FA); 
+  //}
   pop();
   fill(255);
   cansatMarker.setLocation(cansat);
@@ -179,13 +183,14 @@ public void draw(){
   writtenLines = 0;
   write("LAT", lat, 5, "");
   write("LON", lon, 5, "");
-  write("ALT", alt, 2, "m", #00C601);
+  write("ALT", alt, 3, "m", #00C601);
   write("VEL", vel, 3, "mps");
-  write("ACC", acc, 2, "mpss");
+  write("ACC", acc, 4, "mpss");
   write("SAT", sats, 0, "");
   write();
-  write("T  ", temp, 1, "°C", #6464FF);
+  write("T  ", temp, 3, "°C", #6464FF);
   write("P  ", pres, 4, "kPa");
+  image(CanSat, width/2, height/2);
   directionalLight(126, 126, 126, 0, -1, 0);
   ambientLight(200, 200, 200);
   translate(width/2, height/2, 300);
@@ -212,7 +217,7 @@ String pad(int a, int padding){
   out += str(a);
   return out;
 }
-void getdata(){
+//void getdata(){
   //float amplitude = 5;
   //float noise = noise(seed)-0.5;
   //rotX += noise *amplitude;
@@ -243,7 +248,7 @@ void getdata(){
     
   //seed += 0.005;
   //counter = (counter + 1);
-}
+//}
 
 void process_data(String in){
   String data_points[] = in.split(",");
@@ -254,9 +259,9 @@ void process_data(String in){
   alt =   float(data_points[3]);
   sats =    int(data_points[4]);
   vel =     int(data_points[5]);
-  rotX =  float(data_points[6]);
-  rotY =  float(data_points[7]);
-  rotZ =  float(data_points[8]);
+  rotX =  float(data_points[6])*180/PI;
+  rotY =  float(data_points[7])*180/PI;
+  rotZ =  float(data_points[8])*180/PI;
   temp =  float(data_points[9]);
   humid = float(data_points[10]);
   pres =  float(data_points[11]);
@@ -279,6 +284,7 @@ void process_data(String in){
   counter = (counter + 1);
 }
 
+// Update data from wifi stream
 import processing.net.*;
 
 Server myServer;
@@ -299,6 +305,26 @@ void updateData(){
     }
   }
 }
+
+// Update img of cansat
+void AnimateCanSat(){
+    CanSat.beginDraw();
+    CanSat.directionalLight(126, 126, 126, 0, -1, 0);
+    CanSat.ambientLight(200, 200, 200);
+    CanSat.translate(width/2, height/2, 300);
+    CanSat.rotateX(radians(180));
+    //CanSat.rotateY(mouseX*0.01f);
+    CanSat.rotateX(radians(rotX));
+    CanSat.rotateY(radians(rotY));
+    CanSat.rotateZ(radians(rotZ));
+    CanSat.translate(0,-115/2,0);
+    gfx.origin(new Vec3D(), 100);
+    CanSat.noStroke();
+    CanSat.fill(#FF7700);
+    gfx.mesh(mesh, false, 0);
+    CanSat.endDraw();
+}
+
 int gap = 55;
 int padX = 730;
 void graph(float points[], String name, int startX, int startY, int grWidth, int grHeight, color c){
