@@ -1,0 +1,1 @@
+ffmpeg -framerate 2 -i %04d.png output.avi
